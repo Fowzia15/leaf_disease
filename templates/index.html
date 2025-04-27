@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaf Disease Classifier</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin-top: 50px;
+        }
+        #preview {
+            max-width: 400px;
+            margin: 20px 0;
+        }
+        .explanation-image {
+            max-width: 100%;
+            margin: 20px 0;
+        }
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+        .explanation-card {
+            margin-top: 20px;
+        }
+        .explanation-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">Leaf Disease Classifier</h1>
+        
+        <div class="card p-4">
+            <div class="mb-3">
+                <label for="imageInput" class="form-label">Upload Leaf Image</label>
+                <input type="file" class="form-control" id="imageInput" accept="image/*">
+            </div>
+            
+            <img id="preview" class="d-none">
+            
+            <button class="btn btn-primary" onclick="predict()" id="predictBtn" disabled>
+                Predict Disease
+            </button>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="card p-4">
+                <h3>Results:</h3>
+                <p><strong>Prediction:</strong> <span id="prediction"></span></p>
+                <p><strong>Confidence:</strong> <span id="confidence"></span>%</p>
+                
+                <div class="row mt-4">
+                    <!-- SHAP Explanation -->
+                    <div class="col-md-4">
+                        <div class="explanation-card">
+                            <div class="explanation-title">SHAP Explanation</div>
+                            <p>Shows feature importance using Shapley values:</p>
+                            <img id="shap-image" class="explanation-image" src="">
+                        </div>
+                    </div>
+                    
+                    <!-- LIME Explanation -->
+                    <div class="col-md-4">
+                        <div class="explanation-card">
+                            <div class="explanation-title">LIME Explanation</div>
+                            <p>Shows local interpretable features:</p>
+                            <img id="lime-image" class="explanation-image" src="">
+                        </div>
+                    </div>
+                    
+                    <!-- Grad-CAM Explanation -->
+                    <div class="col-md-4">
+                        <div class="explanation-card">
+                            <div class="explanation-title">Grad-CAM Explanation</div>
+                            <p>Shows activation heatmap:</p>
+                            <img id="gradcam-image" class="explanation-image" src="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const preview = document.getElementById('preview');
+        const predictBtn = document.getElementById('predictBtn');
+        const resultSection = document.getElementById('resultSection');
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('d-none');
+                    predictBtn.disabled = false;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function predict() {
+            const file = imageInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                    return;
+                }
+
+                document.getElementById('prediction').textContent = result.prediction;
+                document.getElementById('confidence').textContent = 
+                    (result.confidence * 100).toFixed(2);
+                
+                if (result.explanations) {
+                    // Update explanation images
+                    document.getElementById('shap-image').src = 
+                        '/static/' + result.explanations.shap + '?t=' + new Date().getTime();
+                    document.getElementById('lime-image').src = 
+                        '/static/' + result.explanations.lime + '?t=' + new Date().getTime();
+                    document.getElementById('gradcam-image').src = 
+                        '/static/' + result.explanations.gradcam + '?t=' + new Date().getTime();
+                }
+                
+                resultSection.style.display = 'block';
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html> 
